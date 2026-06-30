@@ -1,0 +1,308 @@
+# Cognee Configuration
+
+## Purpose
+
+Before any memory operations can be performed, Cognee must be configured with:
+
+- LLM Provider
+- Embedding Provider
+- Vector Database
+- Graph Database
+- Storage Paths
+
+AndesContext uses a fully local configuration built around Ollama and Cognee's default local databases.
+
+---
+
+# AndesContext Default Stack
+
+| Component | Provider |
+|----------|----------|
+| LLM | Ollama |
+| Embedding Model | Ollama |
+| Vector Database | LanceDB |
+| Graph Database | Kuzu |
+| Relational Database | SQLite |
+
+This configuration requires no external cloud services.
+
+---
+
+# Environment Variables
+
+Typical `.env`
+
+```env
+# ------------------------
+# LLM
+# ------------------------
+
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen3.5:4b
+
+LLM_ENDPOINT=http://localhost:11434/v1
+
+LLM_API_KEY=ollama
+
+# ------------------------
+# Embeddings
+# ------------------------
+
+EMBEDDING_PROVIDER=ollama
+
+EMBEDDING_MODEL=nomic-embed-text:latest
+
+EMBEDDING_ENDPOINT=http://localhost:11434/api/embed
+
+EMBEDDING_API_KEY=ollama
+
+EMBEDDING_DIMENSIONS=768
+
+# ------------------------
+# Databases
+# ------------------------
+
+VECTOR_DB_PROVIDER=lancedb
+
+GRAPH_DB_PROVIDER=kuzu
+
+RELATIONAL_DB_PROVIDER=sqlite
+
+# ------------------------
+# Storage
+# ------------------------
+
+DATA_ROOT_DIRECTORY=.cognee_data
+
+SYSTEM_ROOT_DIRECTORY=.cognee_system
+```
+
+---
+
+# Runtime Configuration
+
+Cognee also exposes configuration setters.
+
+Example:
+
+```python
+import cognee
+
+cognee.config.set_llm_provider("ollama")
+cognee.config.set_vector_db_provider("lancedb")
+cognee.config.set_graph_db_provider("kuzu")
+```
+
+Environment variables remain the preferred configuration mechanism for AndesContext.
+
+---
+
+# Verify Configuration
+
+```python
+import cognee
+
+print(cognee.config)
+```
+
+or
+
+```python
+import os
+
+print(os.environ["LLM_PROVIDER"])
+```
+
+---
+
+# Example Initialization
+
+```python
+import asyncio
+import cognee
+
+async def initialize():
+
+    await cognee.remember(
+        data="Initialization successful.",
+        dataset_name="andes_workspace"
+    )
+
+asyncio.run(initialize())
+```
+
+If no configuration errors occur, Cognee is correctly initialized.
+
+---
+
+# AndesContext Startup
+
+Every AndesContext workspace should perform:
+
+```
+Load .env
+        │
+        ▼
+Configure Providers
+        │
+        ▼
+Initialize Cognee
+        │
+        ▼
+Verify Models
+        │
+        ▼
+Open Dataset
+        │
+        ▼
+Ready
+```
+
+---
+
+# Ollama Requirements
+
+Required models:
+
+```bash
+ollama pull qwen3.5:4b
+ollama pull nomic-embed-text:latest
+```
+
+Verify:
+
+```bash
+ollama list
+```
+
+---
+
+# Verify Ollama
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+or
+
+```bash
+ollama ps
+```
+
+---
+
+# Recommended Project Structure
+
+```
+backend/
+
+    config.py
+
+    cognee_client.py
+
+.env
+
+.cognee_data/
+
+.cognee_system/
+```
+
+---
+
+# Best Practices
+
+- Use `.env` for all configuration.
+- One configuration per AndesContext installation.
+- Keep databases local by default.
+- Do not hardcode API keys.
+- Verify Ollama before starting AndesContext.
+- Keep embedding and LLM providers consistent.
+
+---
+
+# Common Problems
+
+## Ollama not running
+
+```
+Connection refused
+```
+
+Start:
+
+```bash
+ollama serve
+```
+
+---
+
+## Model missing
+
+```
+Model not found
+```
+
+Pull:
+
+```bash
+ollama pull qwen3.5:4b
+```
+
+---
+
+## Embedding model missing
+
+```
+Embedding initialization failed
+```
+
+Pull:
+
+```bash
+ollama pull nomic-embed-text:latest
+```
+
+---
+
+## Wrong Provider
+
+Verify:
+
+```python
+print(cognee.config)
+```
+
+---
+
+# AndesContext Notes
+
+AndesContext is designed to operate completely offline.
+
+The recommended deployment consists of:
+
+- Local Ollama
+- Local LanceDB
+- Local Kuzu
+- Local SQLite
+
+This minimizes latency, removes cloud dependencies, and aligns with the project's goal of improving local AI development through persistent memory.
+
+---
+
+# Related APIs
+
+- remember()
+- recall()
+- improve()
+- forget()
+
+---
+
+# Related Source Files
+
+```
+cognee/api/v1/config/
+cognee/base_config.py
+cognee/infrastructure/
+```
+
