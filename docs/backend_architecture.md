@@ -1,18 +1,6 @@
 # AndesContext Architecture
 
-## Overview
-
-AndesContext is a local-first desktop application that provides persistent memory for AI-assisted software development.
-
-The system separates user interaction, business logic, memory orchestration, and persistent storage into independent layers.
-
-Rather than directly exposing Cognee to the frontend, all interactions occur through backend services responsible for indexing repositories, managing sessions, retrieving memory, and generating Context Packages.
-
----
-
-# High-Level Architecture
-
-```
+```text
 ┌───────────────────────────────────────────────────────────────┐
 │                      AndesContext                             │
 ├───────────────────────────────────────────────────────────────┤
@@ -33,16 +21,36 @@ Rather than directly exposing Cognee to the frontend, all interactions occur thr
 ├───────────────────────────────────────────────────────────────┤
 │                                                               │
 │  WorkspaceService                                             │
+│      • Repository Management                                  │
+│      • Dataset Lifecycle                                      │
+│                                                               │
 │  IndexingService                                              │
+│      • Repository Import                                      │
+│      • Incremental Indexing                                   │
+│      • File Change Detection                                  │
+│                                                               │
 │  CogneeService                                                │
+│      • initialize()                                           │
+│      • remember()                                             │
+│      • recall()                                               │
+│      • improve()                                              │
+│      • forget()                                               │
+│                                                               │
 │  ContextService                                               │
+│      • Context Package Builder                                │
+│      • Context Compression                                    │
+│      • Memory Ranking                                         │
+│                                                               │
 │  SessionService                                               │
+│      • Coding Sessions                                        │
+│      • Working Memory                                         │
+│      • Session Lifecycle                                      │
 │                                                               │
 └──────────────────────────────┬────────────────────────────────┘
                                │
                                ▼
 ┌───────────────────────────────────────────────────────────────┐
-│                           Cognee                              │
+│                           Cognee                             │
 ├───────────────────────────────────────────────────────────────┤
 │                                                               │
 │  remember()                                                   │
@@ -53,263 +61,194 @@ Rather than directly exposing Cognee to the frontend, all interactions occur thr
 └───────────────┬───────────────────────────────┬───────────────┘
                 │                               │
                 ▼                               ▼
-           LanceDB                         Kuzu Graph
+         ┌──────────────┐               ┌──────────────┐
+         │   LanceDB    │               │     Kuzu     │
+         │ Vector Store │               │ Knowledge    │
+         │              │               │ Graph        │
+         └──────┬───────┘               └──────────────┘
                 │
                 ▼
-             SQLite
+         ┌──────────────┐
+         │    SQLite    │
+         │ Metadata &   │
+         │ Relational   │
+         │ Storage      │
+         └──────────────┘
 ```
 
----
+## Data Flow
 
-# Architectural Principles
+```text
+Developer
 
-The architecture follows four principles:
+    │
 
-1. Separation of concerns.
-2. Local-first execution.
-3. Explicit memory lifecycle.
-4. AI-provider independence.
+    ▼
 
-Each service has a single responsibility and communicates through well-defined interfaces.
+Tauri Frontend
 
----
+    │
 
-# Layer Responsibilities
+    ▼
 
-## Frontend
+Python Backend
 
-Responsible for:
+    │
 
-- User interaction
-- Project management
-- Displaying memory
-- Displaying Context Packages
-- Settings
-
-The frontend never communicates with Cognee directly.
-
----
-
-## Backend
-
-Responsible for:
-
-- Repository indexing
-- Memory orchestration
-- Context generation
-- Session management
-- IPC endpoints
-- Error handling
-
-The backend exposes a stable interface to the frontend while hiding Cognee implementation details.
-
----
-
-## Cognee
-
-Cognee provides the persistent memory layer.
-
-Its responsibilities include:
-
-- remembering information
-- retrieving information
-- improving stored knowledge
-- forgetting obsolete knowledge
-
-Cognee is treated as infrastructure rather than business logic.
-
----
-
-# Service Responsibilities
-
-## WorkspaceService
-
-Manages repositories.
-
-Responsibilities:
-
-- create workspace
-- open workspace
-- close workspace
-- map repositories to datasets
-
----
-
-## IndexingService
-
-Synchronizes repositories into memory.
-
-Responsibilities:
-
-- initial repository import
-- incremental indexing
-- file change detection
-- batch ingestion
-
----
-
-## CogneeService
-
-Thin wrapper around Cognee APIs.
-
-Responsibilities:
-
-- initialize providers
-- remember
-- recall
-- improve
-- forget
-
-No business logic should exist here.
-
----
-
-## ContextService
-
-Transforms retrieved memory into Context Packages.
-
-Responsibilities:
-
-- retrieve memories
-- filter results
-- rank relevance
-- compress information
-- generate markdown output
-
-This service defines the primary value of AndesContext.
-
----
-
-## SessionService
-
-Manages active development sessions.
-
-Responsibilities:
-
-- create session
-- close session
-- working memory
-- session metadata
-
----
-
-# Data Flow
-
-Repository
-
-↓
-
-WorkspaceService
-
-↓
-
-IndexingService
-
-↓
-
-remember()
-
-↓
-
-Persistent Memory
-
-↓
-
-Developer Request
-
-↓
+    ▼
 
 ContextService
 
-↓
+    │
 
-recall()
+    ▼
 
-↓
+Cognee recall()
 
-Memory Results
+    │
 
-↓
-
-Ranking
-
-↓
-
-Compression
-
-↓
+    ▼
 
 Context Package
 
-↓
+    │
+
+    ▼
 
 Coding LLM
 
-↓
+    │
 
-Generated Changes
+    ▼
 
-↓
+Generated Code
 
-remember()
+    │
 
-↓
+    ▼
+
+Cognee remember()
+
+    │
+
+    ▼
+
+Session Memory
+
+    │
+
+    ▼
 
 improve()
 
----
+    │
 
-# Design Constraints
+    ▼
 
-The MVP intentionally excludes:
+Permanent Knowledge Graph
+```
 
-- Multi-user collaboration
-- Cloud synchronization
-- Distributed memory
-- Plugin architecture
-- Autonomous coding agents
-- Graph visualization
+## Repository Indexing Flow
 
-These features may be explored after the hackathon but are outside the initial scope.
+```text
+Open Repository
 
----
+        │
 
-# Technology Stack
+        ▼
 
-Frontend
+WorkspaceService
 
-- React
-- TypeScript
-- Vite
-- Tauri
+        │
 
-Backend
+        ▼
 
-- Python
+Create Dataset
 
-Memory
+        │
 
-- Cognee
+        ▼
 
-Storage
+IndexingService
 
-- LanceDB
-- Kuzu
-- SQLite
+        │
 
-Models
+        ▼
 
-- Ollama
-- Local LLMs
-- Optional cloud LLMs
+remember()
 
----
+        │
 
-# Guiding Principle
+        ▼
 
-AndesContext is not an AI coding assistant.
+Knowledge Graph
 
-It is a persistent memory layer that enables AI coding assistants to understand software projects with significantly less context.
+        │
 
-Every architectural decision should support this objective.
+        ▼
 
+Ready for Retrieval
+```
+
+## Context Generation Flow
+
+```text
+User Request
+
+        │
+
+        ▼
+
+ContextService
+
+        │
+
+        ▼
+
+recall()
+
+        │
+
+        ▼
+
+Relevant Memories
+
+        │
+
+        ▼
+
+Ranking
+
+        │
+
+        ▼
+
+Compression
+
+        │
+
+        ▼
+
+Markdown Context Package
+
+        │
+
+        ▼
+
+Coding LLM
+```
+
+## Core Responsibilities
+
+| Layer | Responsibility |
+|-------|----------------|
+| Frontend | User interaction and workspace management |
+| WorkspaceService | Repository and dataset lifecycle |
+| IndexingService | Import and synchronize repositories |
+| CogneeService | Thin wrapper around Cognee APIs |
+| ContextService | Build optimized Context Packages |
+| SessionService | Temporary coding-session memory |
+| Cognee | Persistent memory lifecycle |
+| LanceDB | Semantic vector retrieval |
+| Kuzu | Knowledge graph relationships |
+| SQLite | Metadata and internal storage |
