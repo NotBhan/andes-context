@@ -36,6 +36,11 @@ API layer implemented and verified:
 - Commands (health, get_backend_status, index_repository, generate_context, forget_dataset) ✅
 - Schemas (Pydantic request/response models) ✅
 
+CLI implemented and verified:
+
+- CLI commands (health, status, index, context, forget) ✅
+- Rich terminal formatting (tables, panels, spinners, markdown) ✅
+
 Next: Milestone 3 — Frontend Foundation
 
 ---
@@ -102,6 +107,9 @@ CogneeService, IndexingService, ContextService.
 
 app/api/
 API layer: async commands exposing services, Pydantic request/response schemas.
+
+app/cli/
+CLI layer: Typer application exposing API commands to developers. Rich terminal formatting.
 
 playground/
 Validation scripts for Cognee integration.
