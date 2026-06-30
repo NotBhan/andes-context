@@ -1,20 +1,44 @@
-**Automated (pytest): 47/47 pass** — schemas, commands, CLI all green.
+# Test 3 — Full Pipeline & CLI Testing
 
-**Live Cognee Integration:**
-- `setup.py` — Cognee initialized successfully with phi3:mini + nomic-embed-text
-- `remember_demo.py` — Data ingested (graph nodes created), timed out during self-improvement step (known phi3:mini structured output limitation)
-- `recall_demo.py` — All 4 queries returned results from the ingested dataset
-- `forget_demo.py` — Dataset deleted successfully via CLI
+**Date**: 2026-06-30
 
-**CLI Commands:**
-- `health` — Shows ok status, Ollama reachable, Cognee initialized
-- `status` — Displays full config (models, DBs, storage paths)
-- `context -q "What is AndesContext?" -d andes_playground` — Generated context package with ~132 tokens
-- `forget -d andes_playground` — Deleted dataset in ~6s
+---
 
-**Error Handling (all correct):**
-- `index /nonexistent` → "Repository path does not exist"
-- `context -q "  "` → "Query must not be empty"
-- `forget` (no args) → "At least one of --dataset, --dataset-id, or --data-id must be provided"
+## Automated Tests (pytest)
 
-**Known Limitation:** phi3:mini struggles with Cognee's structured output during the self-improvement step inside `remember()`, causing retries. The core ingestion and recall pipeline works correctly regardless.
+**47/47 pass** — schemas, commands, CLI all green.
+
+- 35 API tests (schemas + commands + serialization)
+- 12 CLI tests (health, status, index, context, forget)
+
+---
+
+## Live Cognee Integration
+
+| Script | Result | Notes |
+|--------|--------|-------|
+| `setup.py` | PASS | Cognee initialized with phi3:mini + nomic-embed-text |
+| `remember_demo.py` | PARTIAL | Data ingested (graph nodes created). Timed out during self-improvement step (phi3:mini structured output retries) |
+| `recall_demo.py` | PASS | All 4 queries returned relevant results |
+| `improve_demo.py` | SKIPPED | Depends on successful remember() |
+| `forget_demo.py` | PASS | Dataset deleted, recall confirmed empty after |
+
+---
+
+## CLI Commands
+
+| Command | Result | Output |
+|---------|--------|--------|
+| `health` | PASS | Status: ok, Ollama reachable, Cognee initialized |
+| `status` | PASS | Full config table (models, DBs, storage paths) |
+| `context -q "What is AndesContext?" -d andes_playground` | PASS | ~132 tokens, 1 section |
+| `forget -d andes_playground` | PASS | Deleted in ~6s |
+| `index /nonexistent` | PASS (error) | "Repository path does not exist" |
+| `context -q "  "` | PASS (error) | "Query must not be empty" |
+| `forget` (no args) | PASS (error) | "At least one of --dataset..." |
+
+---
+
+## Known Limitation
+
+phi3:mini struggles with Cognee's structured output during the self-improvement step inside `remember()`, causing retries on SummarizedContent and KnowledgeGraph schemas. The core ingestion and recall pipeline works correctly regardless.
