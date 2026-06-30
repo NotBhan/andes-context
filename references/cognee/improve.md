@@ -26,12 +26,12 @@ Verified against repository source.
 
 ```python
 async def improve(
-    dataset_name: str | None = None,
+    dataset: str | None = None,
     **kwargs
 ) -> ImproveResult
 ```
 
-(Note: verify exact return type against the installed Cognee version.)
+**Note**: Verified against Cognee v1.2.2. The parameter is `dataset` (not `dataset_name`).
 
 ---
 
@@ -75,17 +75,17 @@ The exact operations depend on the configured Cognee pipeline.
 
 # Important Parameters
 
-## dataset_name
+## dataset
 
 Improves a single dataset.
 
 Example:
 
 ```python
-dataset_name="andes_workspace"
+dataset="andes_workspace"
 ```
 
-If omitted, Cognee may improve all available datasets depending on configuration.
+If omitted, Cognee improves all available datasets.
 
 ---
 
@@ -97,7 +97,7 @@ import cognee
 
 async def main():
     await cognee.improve(
-        dataset_name="andes_workspace"
+        dataset="andes_workspace"
     )
 
 asyncio.run(main())
@@ -114,7 +114,7 @@ await cognee.remember(
 )
 
 await cognee.improve(
-    dataset_name="andes_workspace"
+    dataset="andes_workspace"
 )
 ```
 
@@ -130,7 +130,7 @@ await cognee.remember(
 )
 
 await cognee.improve(
-    dataset_name="andes_workspace"
+    dataset="andes_workspace"
 )
 ```
 
@@ -143,7 +143,7 @@ import asyncio
 
 asyncio.create_task(
     cognee.improve(
-        dataset_name="andes_workspace"
+        dataset="andes_workspace"
     )
 )
 ```

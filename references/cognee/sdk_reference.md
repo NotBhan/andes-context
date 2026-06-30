@@ -146,16 +146,19 @@ context = await cognee.recall(
 
 ```python
 async def forget(
-    dataset_name: str = None, 
-    document_id: str = None
+    dataset: str = None, 
+    dataset_id: UUID = None,
+    data_id: UUID = None,
+    **kwargs
 ) -> None:
 
 ```
 
 ### Parameters
 
-* `dataset_name` (Optional[str]): Deletes all knowledge associated with a specific workspace namespace.
-* `document_id` (Optional[str]): Targets a specific ingested document for targeted forgetting.
+* `dataset` (Optional[str]): Deletes all knowledge associated with a specific workspace namespace.
+* `dataset_id` (Optional[UUID]): Targets a dataset by UUID.
+* `data_id` (Optional[UUID]): Targets a specific ingested data item by UUID for targeted forgetting.
 
 ### Execution Flow & Implementation Summary
 
@@ -170,6 +173,8 @@ async def forget(
 ### AndesContext Integration
 
 Essential for maintaining sync with the file system. When a file is deleted or heavily refactored in the IDE, AndesContext must call `forget` on the specific file/dataset before re-ingesting it via `remember`.
+
+**Note**: Verified against Cognee v1.2.2. The parameter is `dataset` (not `dataset_name`) and `data_id` (not `document_id`).
 
 ---
 

@@ -38,7 +38,7 @@ Typical `.env`
 # ------------------------
 
 LLM_PROVIDER=ollama
-LLM_MODEL=qwen3.5:4b
+LLM_MODEL=phi3:mini
 
 LLM_ENDPOINT=http://localhost:11434/v1
 
@@ -59,6 +59,12 @@ EMBEDDING_API_KEY=ollama
 EMBEDDING_DIMENSIONS=768
 
 # ------------------------
+# HuggingFace Tokenizer (required by OllamaEmbeddingEngine)
+# ------------------------
+
+HUGGINGFACE_TOKENIZER=nomic-ai/nomic-embed-text-v1
+
+# ------------------------
 # Databases
 # ------------------------
 
@@ -67,6 +73,14 @@ VECTOR_DB_PROVIDER=lancedb
 GRAPH_DB_PROVIDER=kuzu
 
 RELATIONAL_DB_PROVIDER=sqlite
+
+# ------------------------
+# Playground settings
+# ------------------------
+
+ENABLE_BACKEND_ACCESS_CONTROL=false
+CACHING=false
+COGNEE_SKIP_CONNECTION_TEST=true
 
 # ------------------------
 # Storage
@@ -165,7 +179,7 @@ Ready
 Required models:
 
 ```bash
-ollama pull qwen3.5:4b
+ollama pull phi3:mini
 ollama pull nomic-embed-text:latest
 ```
 
@@ -245,7 +259,7 @@ Model not found
 Pull:
 
 ```bash
-ollama pull qwen3.5:4b
+ollama pull phi3:mini
 ```
 
 ---
@@ -274,6 +288,46 @@ print(cognee.config)
 
 ---
 
+## HuggingFace Tokenizer Error
+
+```
+None is not a valid model identifier
+```
+
+Set the tokenizer environment variable:
+
+```bash
+export HUGGINGFACE_TOKENIZER=nomic-ai/nomic-embed-text-v1
+```
+
+This is required even when using Ollama for embeddings — the tokenizer is used for token counting.
+
+---
+
+## Thinking Model Failures
+
+```
+instructor.exceptions.InstructorRetryException
+```
+
+Thinking-mode models (e.g., qwen3.5:4b) exhaust max_tokens on reasoning before producing structured output. Use phi3:mini instead.
+
+---
+
+## Slow Session Analysis
+
+```
+recall() takes 60-90 seconds
+```
+
+Disable session memory:
+
+```bash
+export CACHING=false
+```
+
+---
+
 # AndesContext Notes
 
 AndesContext is designed to operate completely offline.
@@ -286,6 +340,18 @@ The recommended deployment consists of:
 - Local SQLite
 
 This minimizes latency, removes cloud dependencies, and aligns with the project's goal of improving local AI development through persistent memory.
+
+---
+
+# Recommended Model
+
+**phi3:mini** is the current recommended local model for Cognee integration.
+
+- Compatible with Cognee's instructor-based structured output
+- No thinking mode (avoids max_tokens exhaustion during reasoning)
+- Successfully validated across remember(), recall(), improve(), forget()
+
+Avoid thinking-mode models (e.g., qwen3.5:4b) — they cause structured output failures in Cognee's entity extraction pipeline.
 
 ---
 

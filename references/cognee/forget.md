@@ -26,13 +26,14 @@ Verified against repository source.
 
 ```python
 async def forget(
-    dataset_name: str | None = None,
-    document_id: str | None = None,
+    dataset: str | None = None,
+    dataset_id: UUID | None = None,
+    data_id: UUID | None = None,
     **kwargs
 ) -> None
 ```
 
-(Verify the exact signature against the installed Cognee version.)
+**Note**: Verified against Cognee v1.2.2. The parameter is `dataset` (not `dataset_name`) and `data_id` (not `document_id`).
 
 ---
 
@@ -75,21 +76,27 @@ Typical operations include:
 
 # Important Parameters
 
-## dataset_name
+## dataset
 
 Deletes knowledge associated with a dataset.
 
 Example:
 
 ```python
-dataset_name="andes_workspace"
+dataset="andes_workspace"
 ```
 
 ---
 
-## document_id
+## dataset_id
 
-Deletes a specific remembered document.
+Deletes a dataset by UUID.
+
+---
+
+## data_id
+
+Deletes a specific remembered data item by UUID.
 
 Useful when only one file changes.
 
@@ -103,7 +110,7 @@ import cognee
 
 async def main():
     await cognee.forget(
-        dataset_name="andes_workspace"
+        dataset="andes_workspace"
     )
 
 asyncio.run(main())
@@ -115,7 +122,7 @@ asyncio.run(main())
 
 ```python
 await cognee.forget(
-    document_id="architecture.md"
+    data_id="<uuid-of-architecture.md>"
 )
 ```
 
@@ -125,7 +132,7 @@ await cognee.forget(
 
 ```python
 await cognee.forget(
-    document_id="src/auth.py"
+    data_id="<uuid-of-auth.py>"
 )
 
 await cognee.remember(
@@ -140,7 +147,7 @@ await cognee.remember(
 
 ```python
 await cognee.forget(
-    document_id="docs/api.md"
+    data_id="<uuid-of-api.md>"
 )
 
 await cognee.remember(
