@@ -32,11 +32,11 @@ Rather than directly exposing Cognee to the frontend, all interactions occur thr
 │                      Python Backend                           │
 ├───────────────────────────────────────────────────────────────┤
 │                                                               │
-│  WorkspaceService                                             │
-│  IndexingService                                              │
-│  CogneeService                                                │
-│  ContextService                                               │
-│  SessionService                                               │
+│  WorkspaceService          (planned)                          │
+│  IndexingService           ✅ implemented                     │
+│  CogneeService             ✅ implemented                     │
+│  ContextService            ✅ implemented                     │
+│  SessionService            (planned)                          │
 │                                                               │
 └──────────────────────────────┬────────────────────────────────┘
                                │
@@ -122,7 +122,60 @@ Cognee is treated as infrastructure rather than business logic.
 
 # Service Responsibilities
 
-## WorkspaceService
+## CogneeService ✅
+
+Thin wrapper around Cognee APIs.
+
+Responsibilities:
+
+- initialize providers (Ollama, LanceDB, Kuzu, SQLite)
+- configure Cognee's internal config singleton
+- remember
+- recall
+- improve
+- forget
+
+No business logic exists here. All Cognee interactions go through this service.
+
+Implementation: `backend/app/services/cognee_service.py`
+
+---
+
+## IndexingService ✅
+
+Repository indexing pipeline.
+
+Responsibilities:
+
+- discover repository files
+- apply ignore rules (`.git/`, `node_modules/`, etc.)
+- filter supported file types (`.py`, `.ts`, `.md`, etc.)
+- batch ingestion into Cognee
+- report indexing progress
+
+Implementation: `backend/app/services/indexing_service.py`
+
+---
+
+## ContextService ✅
+
+Transforms retrieved memory into Context Packages.
+
+Responsibilities:
+
+- retrieve memories via CogneeService
+- remove duplicates
+- rank relevance
+- categorize by section type
+- generate structured Markdown output
+
+This service defines the primary value of AndesContext.
+
+Implementation: `backend/app/services/context_service.py`
+
+---
+
+## WorkspaceService (planned)
 
 Manages repositories.
 
@@ -135,52 +188,7 @@ Responsibilities:
 
 ---
 
-## IndexingService
-
-Synchronizes repositories into memory.
-
-Responsibilities:
-
-- initial repository import
-- incremental indexing
-- file change detection
-- batch ingestion
-
----
-
-## CogneeService
-
-Thin wrapper around Cognee APIs.
-
-Responsibilities:
-
-- initialize providers
-- remember
-- recall
-- improve
-- forget
-
-No business logic should exist here.
-
----
-
-## ContextService
-
-Transforms retrieved memory into Context Packages.
-
-Responsibilities:
-
-- retrieve memories
-- filter results
-- rank relevance
-- compress information
-- generate markdown output
-
-This service defines the primary value of AndesContext.
-
----
-
-## SessionService
+## SessionService (planned)
 
 Manages active development sessions.
 
@@ -199,19 +207,15 @@ Repository
 
 ↓
 
-WorkspaceService
-
-↓
-
 IndexingService
 
 ↓
 
-remember()
+CogneeService.remember()
 
 ↓
 
-Persistent Memory
+Persistent Memory (LanceDB + Kuzu + SQLite)
 
 ↓
 
@@ -219,11 +223,11 @@ Developer Request
 
 ↓
 
-ContextService
+ContextService.generate_context_package()
 
 ↓
 
-recall()
+CogneeService.recall()
 
 ↓
 
@@ -231,31 +235,65 @@ Memory Results
 
 ↓
 
-Ranking
+Dedup + Rank + Categorize
 
 ↓
 
-Compression
-
-↓
-
-Context Package
+Markdown Context Package
 
 ↓
 
 Coding LLM
 
-↓
+---
 
-Generated Changes
+# Backend Package Structure
 
-↓
+```
+backend/app/
+    __init__.py
+    config/
+        __init__.py
+        settings.py          # Centralized env loading, provider config, validation
+    core/
+        __init__.py
+        logging.py           # Structured logging setup
+    models/
+        __init__.py
+        errors.py            # Exception hierarchy
+        responses.py         # Data models (RememberResult, RecallResult, ContextPackage, etc.)
+    services/
+        __init__.py
+        cognee_service.py    # Thin Cognee wrapper
+        indexing_service.py  # Repository indexing pipeline
+        context_service.py  # Context Package generation
+    api/
+        __init__.py          # ✅ implemented — API command exports
+        commands.py          # ✅ implemented — Async commands (health, index, context, forget)
+        schemas.py           # ✅ implemented — Pydantic request/response models
+    utils/
+        __init__.py
+```
 
-remember()
+---
 
-↓
+# Configuration
 
-improve()
+All configuration flows through `backend/app/config/settings.py`.
+
+Settings are loaded from environment variables with `.env` support.
+
+Cognee's internal config is set via `cognee.config.set_*()` methods — Cognee does not read from `os.environ` directly.
+
+Key environment variables:
+
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `LLM_MODEL` | phi3:mini | Structured output compatible |
+| `EMBEDDING_MODEL` | nomic-embed-text:latest | 768-dim embeddings |
+| `HUGGINGFACE_TOKENIZER` | nomic-ai/nomic-embed-text-v1 | Required by embedding engine |
+| `CACHING` | false | Disable session memory overhead |
+| `COGNEE_SKIP_CONNECTION_TEST` | true | Skip startup latency |
 
 ---
 
@@ -285,23 +323,24 @@ Frontend
 
 Backend
 
-- Python
+- Python 3.13
+- Pydantic (settings, models)
 
 Memory
 
-- Cognee
+- Cognee 1.2.2
 
 Storage
 
-- LanceDB
-- Kuzu
-- SQLite
+- LanceDB (vectors)
+- Kuzu (graph)
+- SQLite (metadata)
 
 Models
 
 - Ollama
-- Local LLMs
-- Optional cloud LLMs
+- phi3:mini (LLM)
+- nomic-embed-text:latest (embeddings)
 
 ---
 
@@ -312,4 +351,3 @@ AndesContext is not an AI coding assistant.
 It is a persistent memory layer that enables AI coding assistants to understand software projects with significantly less context.
 
 Every architectural decision should support this objective.
-

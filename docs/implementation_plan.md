@@ -20,92 +20,92 @@ Avoid implementing infrastructure that is not immediately required.
 
 ---
 
-# Milestone 1 — Foundation
+# Milestone 1 — Backend Foundation ✅
 
 ## Goal
 
-Create the project foundation and establish Cognee integration.
+Create the production backend and establish Cognee integration.
 
 ### Tasks
 
-- Initialize Tauri application
-- Configure Python backend
-- Configure Ollama
-- Install Cognee
-- Configure local databases
+- Configure Python backend structure
+- Configure Ollama with phi3:mini
+- Install Cognee 1.2.2
+- Configure local databases (LanceDB, Kuzu, SQLite)
+- Implement CogneeService
+- Implement IndexingService
+- Implement ContextService
 - Verify remember()
 - Verify recall()
 - Verify improve()
 - Verify forget()
+- End-to-end pipeline test
 
 ### Deliverables
 
-- Working backend
-- Working Cognee integration
-- Working local model
-- Working memory lifecycle
+- Production backend (`backend/app/`)
+- CogneeService — thin wrapper around Cognee APIs
+- IndexingService — repository file discovery, filtering, batching
+- ContextService — memory retrieval, dedup, ranking, Markdown generation
+- Verified Cognee integration with phi3:mini
+- Structured logging, error handling, type hints
 
-Status:
-
-- [ ] Not Started
-- [ ] In Progress
-- [ ] Completed
+Status: **Completed**
 
 ---
 
-# Milestone 2 — Workspace Management
+# Milestone 2 — API Layer (Backend Commands) ✅
 
 ## Goal
 
-Manage software projects.
+Expose backend services through a command API for Tauri IPC.
 
 ### Tasks
 
-- Create Workspace
-- Open Workspace
-- Delete Workspace
-- Repository selection
-- Dataset creation
-- Workspace persistence
+- Define command interface
+- Implement health/status commands
+- Implement indexing commands
+- Implement context generation commands
+- Implement forget commands
+- Error handling for IPC
+- Response serialization
 
-Deliverables
+### Deliverables
 
-- WorkspaceService
-- Workspace storage
-- Dataset mapping
+- Command API layer (`backend/app/api/`)
+- 5 async commands: health, get_backend_status, index_repository, generate_context, forget_dataset
+- Pydantic request/response schemas (8 models)
+- Structured error responses (ErrorResponse)
+- Request validation (path existence, empty inputs)
+- Execution time logging
+- Comprehensive test suite
 
-Status:
-
-- [ ] Not Started
-- [ ] In Progress
-- [ ] Completed
+Status: **Completed**
 
 ---
 
-# Milestone 3 — Repository Indexing
+# Milestone 3 — Frontend Foundation
 
 ## Goal
 
-Build long-term project memory.
+Expose the backend through a desktop interface.
 
-### Tasks
+### Pages
 
-- Initial repository import
-- Batch indexing
-- Ignore patterns
-- Incremental updates
-- File synchronization
+- Projects
+- Context Builder
+- Memory Viewer
+- Sessions
+- Settings
 
-Deliverables
+### Deliverables
 
-- IndexingService
-- Repository importer
+- Functional UI
+- Backend integration via Tauri IPC
 
 Status:
 
 - [ ] Not Started
-- [ ] In Progress
-- [ ] Completed
 
 ---
 
@@ -122,73 +122,17 @@ Support active coding sessions.
 - Working memory
 - Session cleanup
 
-Deliverables
+### Deliverables
 
 - SessionService
 
 Status:
 
 - [ ] Not Started
-- [ ] In Progress
-- [ ] Completed
 
 ---
 
-# Milestone 5 — Context Package Generation
-
-## Goal
-
-Generate compact Context Packages.
-
-### Tasks
-
-- Retrieve memories
-- Rank relevance
-- Remove duplicates
-- Compress information
-- Generate Markdown package
-
-Deliverables
-
-- ContextService
-- Markdown Context Package
-
-Status:
-
-- [ ] Not Started
-- [ ] In Progress
-- [ ] Completed
-
----
-
-# Milestone 6 — Frontend
-
-## Goal
-
-Expose the backend through a desktop interface.
-
-### Pages
-
-- Projects
-- Context Builder
-- Memory Viewer
-- Sessions
-- Settings
-
-Deliverables
-
-- Functional UI
-- Backend integration
-
-Status:
-
-- [ ] Not Started
-- [ ] In Progress
-- [ ] Completed
-
----
-
-# Milestone 7 — Polish
+# Milestone 5 — Polish
 
 ## Goal
 
@@ -197,12 +141,12 @@ Prepare for demonstration.
 ### Tasks
 
 - Performance improvements
-- Error handling
+- Error handling refinements
 - Documentation updates
 - Bug fixes
 - Demo preparation
 
-Deliverables
+### Deliverables
 
 - Stable application
 - Demo-ready build
@@ -210,35 +154,25 @@ Deliverables
 Status:
 
 - [ ] Not Started
-- [ ] In Progress
-- [ ] Completed
 
 ---
 
 # Development Order
 
 ```
-Foundation
+Backend Foundation ✅
 
 ↓
 
-Workspace Management
+API Layer (Backend Commands)
 
 ↓
 
-Repository Indexing
+Frontend Foundation
 
 ↓
 
 Session Memory
-
-↓
-
-Context Package Generation
-
-↓
-
-Frontend
 
 ↓
 
@@ -291,41 +225,23 @@ Commit
 
 ---
 
-# AI Agent Responsibilities
-
-Planner
-
-- Break down work
-- Review architecture
-- Identify risks
-
-Implementation Agent
-
-- Implement one task
-- Stay within scope
-- Follow documentation
-
-Reviewer
-
-- Review correctness
-- Verify architecture
-- Suggest improvements
-
-Documentation Agent
-
-- Update project documentation
-- Update DOX hierarchy
-- Remove stale documentation
-
----
-
 # Current Status
 
 Current Milestone:
 
-**Milestone 1 — Foundation**
+**Milestone 3 — Frontend Foundation**
 
 Current Objective:
 
-Implement `CogneeService` and verify the complete Cognee memory lifecycle.
+Expose the backend through a desktop interface with React + Tauri.
 
+Completed:
+
+- CogneeService ✅
+- IndexingService ✅
+- ContextService ✅
+- Backend structure ✅
+- Cognee integration verified ✅
+- End-to-end pipeline tested ✅
+- API layer (commands + schemas) ✅
+- API test suite ✅

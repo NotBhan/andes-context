@@ -2,7 +2,7 @@
 
 Authoritative reference for Cognee v1.2.2 integration in AndesContext.
 
-Validated via `backend/playground/` against local Ollama, LanceDB, Kuzu, SQLite.
+Validated via `backend/playground/` and production `backend/app/services/` against local Ollama, LanceDB, Kuzu, SQLite.
 
 ---
 
@@ -26,7 +26,7 @@ async def remember(
 
 - `dataset_name` — verified, used for logical memory namespace
 - Each call triggers: classification → chunking → graph extraction → embedding → indexing → self-improvement
-- Latency: ~30s per item with phi3:mini (LLM-dependent)
+- Latency: ~35s per item with phi3:mini (LLM-dependent)
 
 ---
 
@@ -44,7 +44,8 @@ async def recall(
 - `query_text` — verified, the natural language query
 - `datasets` — verified, list of dataset name strings (NOT `dataset_name`)
 - Returns `RecallResponse` objects with attributes: `.kind`, `.search_type`, `.text`, `.score`, `.dataset_name`
-- Latency: ~60-90s with phi3:mini due to session turn analysis (disable with `CACHING=false`)
+- **`.score` can be `None`** — handle with `float(getattr(r, "score", None) or 0.0)`
+- Latency: ~5-30s with phi3:mini (graph completion path)
 
 ---
 
@@ -107,7 +108,7 @@ COGNEE_SKIP_CONNECTION_TEST=true
 ENABLE_BACKEND_ACCESS_CONTROL=false
 ```
 
-**Why**: Cognee's multi-user access control adds overhead for single-user local playground. Disable for local-only operation.
+**Why**: Cognee's multi-user access control adds overhead for single-user local operation. Disable for local-only mode.
 
 ### CACHING
 
@@ -115,7 +116,38 @@ ENABLE_BACKEND_ACCESS_CONTROL=false
 CACHING=false
 ```
 
-**Why**: Session memory triggers `SessionTurnAnalysis` structured output which retries on validation failures, adding 60-90s per recall query with phi3:mini. Disable to avoid this overhead.
+**Why**: Session memory triggers `SessionTurnAnalysis` structured output which retries on validation failures, adding overhead per recall query. Disable to avoid this.
+
+---
+
+## Cognee Configuration
+
+**CRITICAL**: Cognee does NOT read from `os.environ`. It uses its own config singleton.
+
+Correct initialization:
+
+```python
+import cognee
+
+cognee.config.set_llm_provider("ollama")
+cognee.config.set_llm_model("phi3:mini")
+cognee.config.set_llm_api_key("ollama")
+cognee.config.set_llm_endpoint("http://localhost:11434/v1")
+
+cognee.config.set_embedding_provider("ollama")
+cognee.config.set_embedding_model("nomic-embed-text:latest")
+cognee.config.set_embedding_api_key("ollama")
+cognee.config.set_embedding_endpoint("http://localhost:11434/api/embed")
+cognee.config.set_embedding_dimensions(768)
+
+cognee.config.set_vector_db_provider("lancedb")
+cognee.config.set_graph_database_provider("kuzu")
+
+cognee.config.data_root_directory = ".cognee_data"
+cognee.config.system_root_directory = ".cognee_system"
+```
+
+This is implemented in `backend/app/config/settings.py` → `Settings.configure_cognee()`.
 
 ---
 
@@ -156,26 +188,21 @@ pip install transformers
 
 Thinking-mode models (e.g., qwen3.5:4b) cause structured output failures. Cognee uses `litellm_instructor` for entity extraction, which requires models that produce structured output without extended reasoning chains.
 
-### Structured Output Latency
+### Score Can Be None
 
-With phi3:mini, `recall()` triggers `SessionTurnAnalysis` which generates structured output. This adds ~60-90s per query even when session memory is disabled. Setting `CACHING=false` mitigates this but does not eliminate all latency.
+Cognee's `RecallResponse.score` can be `None` for graph-completion results. Always handle this:
+
+```python
+score=float(getattr(r, "score", None) or 0.0)
+```
 
 ### Batch Ingestion
 
 `remember()` processes one item at a time. For large repositories, batch ingestion via `run_in_background=True` or chunked processing is recommended. Individual `remember()` calls each trigger the full pipeline (classification → chunking → extraction → indexing).
 
-### Recall Behavior
+### improve() Scope
 
-- Returns `RecallResponse` objects, not raw strings
-- Each response has `.kind`, `.search_type`, `.text`, `.score`, `.dataset_name`
-- `top_k` controls maximum results returned
-- Empty dataset returns empty list (no error)
-
-### Startup Behavior
-
-- Connection test adds ~30s (skip with `COGNEE_SKIP_CONNECTION_TEST=true`)
-- Database initialization creates `.cognee_data/` and `.cognee_system/` directories
-- First remember() call on a new dataset is slowest (initializes graph schema)
+`improve()` operates on all available datasets (no single-dataset scoping in v1.2.2). Run after bulk ingestion, not after every file change.
 
 ---
 
@@ -183,24 +210,17 @@ With phi3:mini, `recall()` triggers `SessionTurnAnalysis` which generates struct
 
 | Operation | Latency (phi3:mini) | Notes |
 |-----------|---------------------|-------|
-| remember() per item | ~30s | Full pipeline per call |
-| recall() per query | ~60-90s | Session turn analysis overhead |
+| remember() per item | ~35s | Full pipeline per call |
+| recall() per query | ~5-30s | Graph completion path |
 | improve() | Variable | Computationally heavy, depends on graph size |
-| forget() | ~5-10s | Cascade deletion across stores |
+| forget() | ~1-2s | Cascade deletion across stores |
 
 ### Batch Ingestion Recommendation
 
 For repository indexing:
-1. Use `run_in_background=True` for large file lists
-2. Consider chunking file lists into batches of 10-20
-3. Call `improve()` once after bulk ingestion completes
-4. Avoid calling `remember()` on every file save — batch changes
-
-### improve() Behavior
-
-- Operates on all available datasets (no single-dataset scoping in v1.2.2)
-- Recommended triggers: after bulk ingestion, session end, idle periods
-- Should NOT run after every individual file change
+1. Use batch size of 10-20 files per `remember()` call
+2. Call `improve()` once after bulk ingestion completes
+3. Avoid calling `remember()` on every file save — batch changes
 
 ---
 
@@ -217,9 +237,33 @@ For repository indexing:
 
 ---
 
+## Implementation Notes
+
+### CogneeService
+
+Thin wrapper. No business logic. Delegates to `cognee.*` APIs.
+
+Key method: `initialize()` calls `settings.configure_cognee()` which sets both env vars and Cognee's internal config.
+
+### IndexingService
+
+File discovery uses `Path.rglob("*")`. Filtering checks extension against `SUPPORTED_EXTENSIONS` frozenset and path components against `IGNORED_DIRS`.
+
+Batch size is configurable (default: 10). Failed batches are logged and collected in `IndexingProgress.failed_paths`.
+
+### ContextService
+
+Categorization uses keyword matching on memory text. File detection checks for code extensions or `kind="file"` from Cognee.
+
+Deduplication normalizes text (lowercase + whitespace collapse) before comparison.
+
+---
+
 ## Related Files
 
+- Production services: `backend/app/services/`
+- Configuration: `backend/app/config/settings.py`
 - Playground scripts: `backend/playground/`
 - SDK reference: `references/cognee/sdk_reference.md`
-- Configuration: `references/cognee/configuration.md`
+- Configuration reference: `references/cognee/configuration.md`
 - Cognee integration plan: `docs/cognee_integration.md`
