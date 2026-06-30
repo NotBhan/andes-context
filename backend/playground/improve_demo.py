@@ -1,8 +1,8 @@
 """
-improve_demo.py — Validate cognee.improve().
+improve_demo.py — Validate cognee.improve() via CogneeService.
 
 Purpose:
-    Prove that Cognee can enrich and refine existing memory
+    Prove that CogneeService can enrich and refine existing memory
     by analyzing the knowledge graph, merging similar concepts,
     and generating higher-level summaries.
 
@@ -32,31 +32,28 @@ import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from setup import initialize_cognee, DATASET_NAME, run_async
+from setup import get_service, DATASET_NAME, run_async
 
 
 async def main():
     print("=" * 60)
-    print("  improve() Validation")
+    print("  improve() Validation (Production Backend)")
     print("=" * 60)
     print()
 
     # 1. Initialize
-    print("[1/3] Initializing Cognee...")
-    await initialize_cognee()
+    print("[1/3] Initializing CogneeService...")
+    service = get_service()
+    await service.initialize()
     print()
 
-    import cognee
-
     # 2. Run improve
-    # API difference: cognee.improve() in v1.2.2 does NOT accept dataset_name.
-    # It operates on all available datasets.
     print("[2/3] Running improve()...")
     print("  (This may take a while — improve() is computationally heavy)")
     print()
     start = time.time()
     try:
-        result = await cognee.improve()
+        result = await service.improve()
         elapsed = time.time() - start
         print(f"  improve() completed in {elapsed:.1f}s")
         print(f"  Result type: {type(result).__name__}")
@@ -67,18 +64,17 @@ async def main():
         print(f"  improve() failed after {elapsed:.1f}s: {e}")
     print()
 
-    # 3. Verify improvement — recall again to check quality
+    # 3. Verify improvement
     print("[3/3] Verifying improvement with recall...")
     try:
-        results = await cognee.recall(
+        response = await service.recall(
             query_text="What is AndesContext?",
             datasets=[DATASET_NAME],
             top_k=3,
         )
-        print(f"  Post-improve recall returned {len(results)} result(s)")
-        for i, r in enumerate(results, 1):
-            text = str(r)[:150]
-            print(f"    [{i}] {text}")
+        print(f"  Post-improve recall returned {response.count} result(s)")
+        for i, r in enumerate(response.results, 1):
+            print(f"    [{i}] {r.text[:150]}")
     except Exception as e:
         print(f"  Post-improve recall failed: {e}")
     print()

@@ -44,4 +44,8 @@ Verify backend behavior matches project documentation.
 
 # Child DOX Index
 
-No child DOX documents currently exist.
+app/
+Production backend: config, core, models, services, utils.
+
+playground/
+Validation scripts for Cognee integration.

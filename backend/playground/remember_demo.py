@@ -1,14 +1,14 @@
 """
-remember_demo.py — Validate cognee.remember().
+remember_demo.py — Validate cognee.remember() via CogneeService.
 
 Purpose:
-    Prove that Cognee can ingest text data into a local dataset
+    Prove that CogneeService can ingest text data into a local dataset
     using Ollama for LLM + embeddings and LanceDB/Kuzu/SQLite for storage.
 
 Prerequisites:
     - Ollama running with phi3:mini and nomic-embed-text:latest
     - cognee installed
-    - Run setup.py first (or import initialize_cognee)
+    - Run setup.py first (or import get_service)
 
 Execute:
     python3.13 remember_demo.py
@@ -23,17 +23,15 @@ Failure modes:
     - Embedding model missing → initialization error
     - LLM model missing → entity extraction fails
     - Database errors → storage path issues
-    - Cognee API differences → signature mismatch
 """
 
 import asyncio
 import sys
 import os
 
-# Ensure we can import from the same directory
 sys.path.insert(0, os.path.dirname(__file__))
 
-from setup import initialize_cognee, DATASET_NAME, run_async
+from setup import get_service, DATASET_NAME, run_async
 
 
 SAMPLE_DATA = [
@@ -52,50 +50,46 @@ SAMPLE_DATA = [
 
 async def main():
     print("=" * 60)
-    print("  remember() Validation")
+    print("  remember() Validation (Production Backend)")
     print("=" * 60)
     print()
 
     # 1. Initialize
-    print("[1/4] Initializing Cognee...")
-    await initialize_cognee()
+    print("[1/4] Initializing CogneeService...")
+    service = get_service()
+    await service.initialize()
     print()
 
-    # 2. Import cognee
-    import cognee
-
-    # 3. Remember sample data
+    # 2. Remember sample data
     print(f"[2/4] Storing {len(SAMPLE_DATA)} items into dataset '{DATASET_NAME}'...")
     for i, item in enumerate(SAMPLE_DATA, 1):
         print(f"  [{i}/{len(SAMPLE_DATA)}] {item[:60]}...")
         try:
-            result = await cognee.remember(
+            result = await service.remember(
                 data=item,
                 dataset_name=DATASET_NAME,
             )
-            print(f"       → OK (result type: {type(result).__name__})")
+            print(f"       -> OK (items_sent={result.items_sent})")
         except Exception as e:
-            print(f"       → FAILED: {e}")
-            # Continue with remaining items
+            print(f"       -> FAILED: {e}")
     print()
 
-    # 4. Verify — attempt a basic recall to confirm data exists
+    # 3. Verify
     print("[3/4] Verifying data was stored (basic recall)...")
     try:
-        results = await cognee.recall(
+        response = await service.recall(
             query_text="What is AndesContext?",
             datasets=[DATASET_NAME],
             top_k=3,
         )
-        print(f"  Recall returned {len(results)} result(s)")
-        for i, r in enumerate(results, 1):
-            text = str(r)[:120]
-            print(f"  [{i}] {text}")
+        print(f"  Recall returned {response.count} result(s)")
+        for i, r in enumerate(response.results, 1):
+            print(f"  [{i}] {r.text[:120]}")
     except Exception as e:
         print(f"  Recall verification failed: {e}")
     print()
 
-    # 5. Summary
+    # 4. Summary
     print("[4/4] Summary")
     print(f"  Dataset:    {DATASET_NAME}")
     print(f"  Items sent: {len(SAMPLE_DATA)}")

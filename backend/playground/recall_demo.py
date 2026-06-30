@@ -1,8 +1,8 @@
 """
-recall_demo.py — Validate cognee.recall().
+recall_demo.py — Validate cognee.recall() via CogneeService.
 
 Purpose:
-    Prove that Cognee can retrieve previously stored information
+    Prove that CogneeService can retrieve previously stored information
     using hybrid search (vector + graph) over a local dataset.
 
 Prerequisites:
@@ -22,7 +22,6 @@ Failure modes:
     - Empty dataset → no results returned
     - Ollama unavailable → embedding search fails
     - Wrong dataset name → no matching data
-    - Cognee API differences → parameter mismatch
 """
 
 import asyncio
@@ -31,7 +30,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from setup import initialize_cognee, DATASET_NAME, run_async
+from setup import get_service, DATASET_NAME, run_async
 
 
 QUERIES = [
@@ -44,16 +43,15 @@ QUERIES = [
 
 async def main():
     print("=" * 60)
-    print("  recall() Validation")
+    print("  recall() Validation (Production Backend)")
     print("=" * 60)
     print()
 
     # 1. Initialize
-    print("[1/3] Initializing Cognee...")
-    await initialize_cognee()
+    print("[1/3] Initializing CogneeService...")
+    service = get_service()
+    await service.initialize()
     print()
-
-    import cognee
 
     # 2. Run recall queries
     print("[2/3] Running recall queries...")
@@ -61,15 +59,14 @@ async def main():
         print(f"\n  Query {i}: \"{query}\"")
         print(f"  {'-' * 50}")
         try:
-            results = await cognee.recall(
+            response = await service.recall(
                 query_text=query,
                 datasets=[DATASET_NAME],
                 top_k=5,
             )
-            print(f"  Results: {len(results)}")
-            for j, r in enumerate(results, 1):
-                text = str(r)[:150]
-                print(f"    [{j}] {text}")
+            print(f"  Results: {response.count}")
+            for j, r in enumerate(response.results, 1):
+                print(f"    [{j}] {r.text[:150]}")
         except Exception as e:
             print(f"  FAILED: {e}")
     print()

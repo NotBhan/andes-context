@@ -1,8 +1,8 @@
 """
-forget_demo.py — Validate cognee.forget().
+forget_demo.py — Validate cognee.forget() via CogneeService.
 
 Purpose:
-    Prove that Cognee can remove stored information from a dataset,
+    Prove that CogneeService can remove stored information from a dataset,
     cleaning up vectors, graph nodes, relationships, and metadata.
 
 Prerequisites:
@@ -31,44 +31,39 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from setup import initialize_cognee, DATASET_NAME, run_async
+from setup import get_service, DATASET_NAME, run_async
 
 
 async def main():
     print("=" * 60)
-    print("  forget() Validation")
+    print("  forget() Validation (Production Backend)")
     print("=" * 60)
     print()
 
     # 1. Initialize
-    print("[1/4] Initializing Cognee...")
-    await initialize_cognee()
+    print("[1/4] Initializing CogneeService...")
+    service = get_service()
+    await service.initialize()
     print()
-
-    import cognee
 
     # 2. Verify data exists before forgetting
     print("[2/4] Verifying data exists before forget()...")
     try:
-        before_results = await cognee.recall(
+        before = await service.recall(
             query_text="What is AndesContext?",
             datasets=[DATASET_NAME],
             top_k=3,
         )
-        print(f"  Before forget: {len(before_results)} result(s)")
+        print(f"  Before forget: {before.count} result(s)")
     except Exception as e:
         print(f"  Pre-forget recall failed: {e}")
-        before_results = []
+        before = None
     print()
 
     # 3. Forget the dataset
-    # API difference: cognee.forget() in v1.2.2 uses 'dataset' (str) or
-    # 'dataset_id' (UUID), NOT 'dataset_name'.
     print(f"[3/4] Forgetting dataset '{DATASET_NAME}'...")
     try:
-        await cognee.forget(
-            dataset=DATASET_NAME,
-        )
+        await service.forget(dataset=DATASET_NAME)
         print("  forget() completed successfully")
     except Exception as e:
         print(f"  forget() failed: {e}")
@@ -77,18 +72,19 @@ async def main():
     # 4. Verify data is gone
     print("[4/4] Verifying data was removed...")
     try:
-        after_results = await cognee.recall(
+        after = await service.recall(
             query_text="What is AndesContext?",
             datasets=[DATASET_NAME],
             top_k=3,
         )
-        print(f"  After forget: {len(after_results)} result(s)")
-        if len(after_results) < len(before_results):
-            print("  ✓ Data was successfully removed")
-        elif len(after_results) == 0:
-            print("  ✓ Dataset is empty — forget() worked completely")
+        print(f"  After forget: {after.count} result(s)")
+        before_count = before.count if before else 0
+        if after.count < before_count:
+            print("  Data was successfully removed")
+        elif after.count == 0:
+            print("  Dataset is empty — forget() worked completely")
         else:
-            print("  ⚠ Same number of results — verify forget() behavior")
+            print("  Same number of results — verify forget() behavior")
     except Exception as e:
         print(f"  Post-forget recall failed (may indicate deletion): {e}")
     print()

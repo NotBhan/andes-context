@@ -5,6 +5,8 @@ Purpose:
     Centralizes Cognee configuration for the validation playground scripts.
     Every demo script imports initialize_cognee() from this module.
 
+    Uses the production CogneeService for initialization.
+
 Prerequisites:
     - Ollama running on localhost:11434
     - Models pulled: phi3:mini, nomic-embed-text:latest
@@ -12,9 +14,10 @@ Prerequisites:
     - kuzu installed (bundled with cognee)
 
 Usage:
-    from setup import initialize_cognee, DATASET_NAME
+    from setup import get_service, DATASET_NAME
 
-    await initialize_cognee()
+    service = get_service()
+    await service.initialize()
 
 Expected output:
     "Cognee initialized successfully"
@@ -28,97 +31,31 @@ Failure modes:
 import os
 import sys
 import asyncio
-import socket
 from pathlib import Path
+
+# Ensure the backend/app package is importable
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from app.services.cognee_service import CogneeService
+from app.config.settings import get_settings
+from app.core.logging import setup_logging
 
 # ── Dataset name used across all playground scripts ──
 DATASET_NAME = "andes_playground"
 
-# ── Data directories (project-local, not global) ──
-DATA_ROOT = Path(__file__).resolve().parent.parent / ".cognee_data"
-SYSTEM_ROOT = Path(__file__).resolve().parent.parent / ".cognee_system"
+# ── Module-level service instance ──
+_service: CogneeService | None = None
 
 
-def _check_ollama(host: str = "localhost", port: int = 11434) -> bool:
-    """Return True if Ollama is reachable."""
-    try:
-        with socket.create_connection((host, port), timeout=3):
-            return True
-    except (ConnectionRefusedError, OSError):
-        return False
-
-
-def _set_environment():
-    """Configure environment variables for Cognee before import."""
-    os.environ.setdefault("LLM_PROVIDER", "ollama")
-    os.environ.setdefault("LLM_MODEL", "phi3:mini")
-    os.environ.setdefault("LLM_ENDPOINT", "http://localhost:11434/v1")
-    os.environ.setdefault("LLM_API_KEY", "ollama")
-
-    os.environ.setdefault("EMBEDDING_PROVIDER", "ollama")
-    os.environ.setdefault("EMBEDDING_MODEL", "nomic-embed-text:latest")
-    os.environ.setdefault("EMBEDDING_ENDPOINT", "http://localhost:11434/api/embed")
-    os.environ.setdefault("EMBEDDING_API_KEY", "ollama")
-    os.environ.setdefault("EMBEDDING_DIMENSIONS", "768")
-
-    # HuggingFace tokenizer for Ollama embedding engine token counting
-    os.environ.setdefault("HUGGINGFACE_TOKENIZER", "nomic-ai/nomic-embed-text-v1")
-
-    os.environ.setdefault("VECTOR_DB_PROVIDER", "lancedb")
-    os.environ.setdefault("GRAPH_DB_PROVIDER", "kuzu")
-    os.environ.setdefault("RELATIONAL_DB_PROVIDER", "sqlite")
-
-    os.environ.setdefault("DATA_ROOT_DIRECTORY", str(DATA_ROOT))
-    os.environ.setdefault("SYSTEM_ROOT_DIRECTORY", str(SYSTEM_ROOT))
-
-    # Disable multi-user access control for local playground
-    os.environ.setdefault("ENABLE_BACKEND_ACCESS_CONTROL", "false")
-
-    # Disable session memory to avoid slow LLM-based session turn analysis
-    os.environ.setdefault("CACHING", "false")
-
-    # Skip slow connection tests during validation
-    os.environ.setdefault("COGNEE_SKIP_CONNECTION_TEST", "true")
-
-
-async def initialize_cognee() -> None:
-    """
-    Initialize Cognee with local Ollama + LanceDB + Kuzu + SQLite.
-
-    Raises:
-        SystemExit: if Ollama is unreachable or cognee import fails.
-    """
-    # 1. Pre-flight: Ollama
-    if not _check_ollama():
-        print("ERROR: Ollama is not reachable at localhost:11434")
-        print("       Start it with: ollama serve")
-        sys.exit(1)
-
-    # 2. Set env vars
-    _set_environment()
-
-    # 3. Import cognee (after env is configured)
-    try:
-        import cognee
-    except ImportError:
-        print("ERROR: cognee is not installed.")
-        print("       Install with: pip install cognee")
-        sys.exit(1)
-
-    # 4. Print config summary
-    print(f"  LLM provider:     {os.environ['LLM_PROVIDER']}")
-    print(f"  LLM model:        {os.environ['LLM_MODEL']}")
-    print(f"  Embedding model:  {os.environ['EMBEDDING_MODEL']}")
-    print(f"  Vector DB:        {os.environ['VECTOR_DB_PROVIDER']}")
-    print(f"  Graph DB:         {os.environ['GRAPH_DB_PROVIDER']}")
-    print(f"  Relational DB:    {os.environ['RELATIONAL_DB_PROVIDER']}")
-    print(f"  Data root:        {DATA_ROOT}")
-    print(f"  System root:      {SYSTEM_ROOT}")
-
-    # 5. Verify cognee can be imported without errors
-    print("  cognee version:   ", cognee.__version__)
-    print()
-    print("Cognee initialized successfully.")
+def get_service() -> CogneeService:
+    """Return the CogneeService singleton, creating it if needed."""
+    global _service
+    if _service is None:
+        setup_logging()
+        _service = CogneeService()
+    return _service
 
 
 def run_async(coro):
@@ -127,4 +64,34 @@ def run_async(coro):
 
 
 if __name__ == "__main__":
-    run_async(initialize_cognee())
+    import socket
+
+    settings = get_settings()
+
+    print("=" * 60)
+    print("  Cognee Playground Setup (Production Backend)")
+    print("=" * 60)
+    print()
+
+    # Check Ollama
+    if not settings.ollama.check_connection():
+        print("ERROR: Ollama is not reachable at", settings.ollama.base_url)
+        print("       Start it with: ollama serve")
+        sys.exit(1)
+
+    print(f"  LLM provider:     ollama")
+    print(f"  LLM model:        {settings.ollama.llm_model}")
+    print(f"  Embedding model:  {settings.ollama.embedding_model}")
+    print(f"  Vector DB:        {settings.storage.vector_db}")
+    print(f"  Graph DB:         {settings.storage.graph_db}")
+    print(f"  Relational DB:    {settings.storage.relational_db}")
+    print(f"  Data root:        {settings.storage.data_root}")
+    print(f"  System root:      {settings.storage.system_root}")
+    print()
+
+    async def _init():
+        svc = get_service()
+        await svc.initialize()
+        print("Cognee initialized successfully.")
+
+    run_async(_init())
